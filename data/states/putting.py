@@ -1,4 +1,5 @@
 import pygame as pg
+import serial
 
 from .. import tools
 from ..components.ball import Ball
@@ -13,7 +14,8 @@ class Putting(tools._State):
     """
     def __init__(self):
         super(Putting, self).__init__()
-        
+        ser = serial.Serial('/dev/tty.usbserial', 9600)
+
     def startup(self, persistent):
         self.persist = persistent
         self.ball = self.persist["ball"]
@@ -22,12 +24,21 @@ class Putting(tools._State):
         self.player = self.persist["player"]
         self.music_handler = self.persist["music handler"]
         self.putter.putted = False
+        self.putter.set_pos(self.ball)
         pg.mouse.set_visible(False)
-        
+
     def quit_game(self):
         self.quit = True
         self.player.save()
-        
+
+    def putt(self):
+        self.putter.set_swing(self.ball)
+        self.putter.putted = True
+        self.player.strokes += 1
+        self.done  = True
+        pg.mouse.set_visible(True)
+        self.next = "SWINGING"
+
     def get_event(self, event):
         self.music_handler.get_event(event)
         if event.type == pg.QUIT:
@@ -36,15 +47,17 @@ class Putting(tools._State):
             if event.key == pg.K_ESCAPE:
                 self.quit_game()
         elif event.type == pg.MOUSEBUTTONUP:
-            self.putter.set_swing(self.ball)
-            self.putter.putted = True
-            self.player.strokes += 1
-            self.done  = True
-            pg.mouse.set_visible(True)
-            self.next = "SWINGING"
+            self.putt()
 
     def update(self, dt):
         self.music_handler.update()
+        command = ser.readline()
+
+        if command == "UP":
+            self.putt()
+        elif command != "":
+            self.putter.set_pos(self.ball)
+
         mouse_pos = pg.mouse.get_pos()
         self.putter.update(dt, mouse_pos, self.ball)
         self.hole.update(dt, self.ball)
