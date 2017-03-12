@@ -1,10 +1,10 @@
 import pygame as pg
-import serial
 
 from .. import tools
 from ..components.ball import Ball
 from ..components.putter import Putter
 from ..components.course_hole import CourseHole
+from ..slider import Slider
 
 
 class Putting(tools._State):
@@ -14,7 +14,6 @@ class Putting(tools._State):
     """
     def __init__(self):
         super(Putting, self).__init__()
-        ser = serial.Serial('/dev/tty.usbserial', 9600)
 
     def startup(self, persistent):
         self.persist = persistent
@@ -26,6 +25,8 @@ class Putting(tools._State):
         self.putter.putted = False
         self.putter.set_pos(self.ball)
         pg.mouse.set_visible(False)
+        self.slider = Slider()
+        self.first_touch = False
 
     def quit_game(self):
         self.quit = True
@@ -51,13 +52,15 @@ class Putting(tools._State):
 
     def update(self, dt):
         self.music_handler.update()
-        command = ser.readline()
 
-        if command == "UP":
+        self.putter.pot_dist = self.slider.get_pos()
+
+        if(not self.first_touch and self.putter.is_touched):
+            self.first_touch = True
+        elif(not self.putter.is_touched):
             self.putt()
-        elif command != "":
-            self.putter.set_pos(self.ball)
 
+        self.putter.set_pos(self.ball)
         mouse_pos = pg.mouse.get_pos()
         self.putter.update(dt, mouse_pos, self.ball)
         self.hole.update(dt, self.ball)
